@@ -85,6 +85,16 @@ kopia repository connect server --url https://<address>:51515 \
   --server-cert-fingerprint 48537cce585fed39fb26c639eb8ef38143592ba4b4e7677a84a31916398d40f7
 ```
 
+If the certificate is signed by a CA (for example LetsEncrypt), use
+`--server-cert-ca-file` instead of a fingerprint: the client verifies the
+server certificate against that CA rather than pinning one leaf, so a
+rotated certificate keeps working without reconnecting.
+
+```shell
+kopia repository connect server --url https://<address>:51515 \
+  --server-cert-ca-file ~/ca.pem
+```
+
 Once connected, all snapshot and policy `kopia` commands should work for the current user, but low-level commands such as `repo status` will fail:
 
 ```shell
@@ -233,7 +243,7 @@ Kopia server will refresh its configuration by fetching it from repository perio
 
 ```shell
 $ kopia server refresh \
-  --address=https://server:port [--server-cert-fingerprint=FINGERPRINT] \
+  --address=https://server:port [--server-cert-fingerprint=FINGERPRINT | --server-cert-ca-file=CA_FILE] \
   --server-username=control \
   --server-password=PASSWORD_HERE
 ```
