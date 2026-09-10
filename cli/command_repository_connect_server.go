@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -15,6 +16,7 @@ type commandRepositoryConnectServer struct {
 
 	connectAPIServerURL                              string
 	connectAPIServerCertFingerprint                  string
+	connectAPIServerCertCAFile                       string
 	connectAPIServerLocalCacheKeyDerivationAlgorithm string
 	connectAPIServerClientCertificate                string
 	connectAPIServerClientPrivateKey                 string
@@ -31,6 +33,8 @@ func (c *commandRepositoryConnectServer) setup(svc advancedAppServices, parent c
 	cmd := parent.Command("server", "Connect to a repository API Server.")
 	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.connectAPIServerCertFingerprint)
+	// Distinct from server-side --tls-ca-file, which trusts client certificates for mTLS.
+	cmd.Flag("server-cert-ca-file", "Path to a PEM file with the CA certificate(s) the server certificate must chain to; alternative to --server-cert-fingerprint").StringVar(&c.connectAPIServerCertCAFile)
 	cmd.Flag("client-certificate", "Certificate to be sent to the server").StringVar(&c.connectAPIServerClientCertificate)
 	cmd.Flag("client-key", "Private key of the client-certificate. Proves the certificate owner is trustworthy").StringVar(&c.connectAPIServerClientPrivateKey)
 	//nolint:lll
@@ -41,9 +45,25 @@ func (c *commandRepositoryConnectServer) setup(svc advancedAppServices, parent c
 func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 	localCacheKeyDerivationAlgorithm := c.connectAPIServerLocalCacheKeyDerivationAlgorithm
 
+	if c.connectAPIServerCertFingerprint != "" && c.connectAPIServerCertCAFile != "" {
+		return errors.New("server-cert-fingerprint and server-cert-ca-file are mutually exclusive")
+	}
+
+	var caPEM []byte
+
+	if c.connectAPIServerCertCAFile != "" {
+		data, err := os.ReadFile(c.connectAPIServerCertCAFile) //#nosec
+		if err != nil {
+			return errors.Wrapf(err, "error opening server-cert-ca-file %v", c.connectAPIServerCertCAFile)
+		}
+
+		caPEM = data
+	}
+
 	as := &repo.APIServerInfo{
 		BaseURL:                             strings.TrimSuffix(c.connectAPIServerURL, "/"),
 		TrustedServerCertificateFingerprint: strings.ToLower(c.connectAPIServerCertFingerprint),
+		TrustedServerCACertificate:          caPEM,
 		LocalCacheKeyDerivationAlgorithm:    localCacheKeyDerivationAlgorithm,
 		ClientCertificateFile:               c.connectAPIServerClientCertificate,
 		ClientPrivateKeyFile:                c.connectAPIServerClientPrivateKey,

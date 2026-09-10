@@ -15,6 +15,7 @@ import (
 type APIServerInfo struct {
 	BaseURL                             string `json:"url"`
 	TrustedServerCertificateFingerprint string `json:"serverCertFingerprint"`
+	TrustedServerCACertificate          []byte `json:"serverCertCA,omitempty"`
 	LocalCacheKeyDerivationAlgorithm    string `json:"localCacheKeyDerivationAlgorithm,omitempty"`
 	ClientCertificateFile               string `json:"clientCertificateFile,omitempty"`
 	ClientPrivateKeyFile                string `json:"clientPrivateKeyFile,omitempty"`
