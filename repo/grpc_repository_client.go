@@ -892,9 +892,22 @@ func (c grpcCreds) RequireTransportSecurity() bool {
 func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password string, par *immutableServerRepositoryParameters) (Repository, error) {
 	var transportCreds credentials.TransportCredentials
 
-	if si.TrustedServerCertificateFingerprint != "" {
+	haveFingerprint := si.TrustedServerCertificateFingerprint != ""
+	haveCA := len(si.TrustedServerCACertificate) > 0
+
+	switch {
+	case haveFingerprint && haveCA:
+		return nil, errors.New("server-cert-fingerprint and server-cert-ca-file are mutually exclusive")
+	case haveFingerprint:
 		transportCreds = credentials.NewTLS(tlsutil.TLSConfigTrustingSingleCertificate(si.TrustedServerCertificateFingerprint))
-	} else {
+	case haveCA:
+		tlsConfig, err := tlsutil.TLSConfigTrustingCA(si.TrustedServerCACertificate)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid server CA certificate")
+		}
+
+		transportCreds = credentials.NewTLS(tlsConfig)
+	default:
 		transportCreds = credentials.NewClientTLSFromCert(nil, "")
 	}
 

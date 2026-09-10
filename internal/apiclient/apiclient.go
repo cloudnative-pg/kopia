@@ -201,6 +201,7 @@ type Options struct {
 	Password string
 
 	TrustedServerCertificateFingerprint string
+	TrustedServerCACertificate          []byte
 
 	LogRequests bool
 }
@@ -209,10 +210,23 @@ type Options struct {
 func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
 	var transport http.RoundTripper
 
-	// override transport which trusts only one certificate
-	if f := options.TrustedServerCertificateFingerprint; f != "" {
-		transport = tlsutil.TransportTrustingSingleCertificate(f)
-	} else {
+	haveFingerprint := options.TrustedServerCertificateFingerprint != ""
+	haveCA := len(options.TrustedServerCACertificate) > 0
+
+	switch {
+	case haveFingerprint && haveCA:
+		return nil, errors.New("server-cert-fingerprint and server-cert-ca-file are mutually exclusive")
+	case haveFingerprint:
+		// override transport which trusts only one certificate
+		transport = tlsutil.TransportTrustingSingleCertificate(options.TrustedServerCertificateFingerprint)
+	case haveCA:
+		t, err := tlsutil.TransportTrustingCA(options.TrustedServerCACertificate)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid server CA certificate")
+		}
+
+		transport = t
+	default:
 		transport = http.DefaultTransport
 	}
 
