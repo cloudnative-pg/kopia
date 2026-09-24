@@ -34,14 +34,14 @@ const (
 )
 
 // StartServer starts a test server and returns APIServerInfo.
-func StartServer(t *testing.T, env *repotesting.Environment, useTLS bool) *repo.APIServerInfo {
+func StartServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
 	t.Helper()
 
-	return StartServerContext(testlogging.Context(t), t, env, useTLS)
+	return StartServerContext(testlogging.Context(t), t, env, tls)
 }
 
 // StartServerContext starts a test server with a given root context and returns APIServerInfo.
-func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Environment, useTLS bool) *repo.APIServerInfo {
+func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
 	t.Helper()
 
 	s, err := server.New(ctx, &server.Options{
@@ -74,7 +74,7 @@ func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Envi
 	s.ServeStaticFiles(m, server.AssetFile())
 
 	hs := httptest.NewUnstartedServer(s.GRPCRouterHandler(m))
-	if useTLS {
+	if tls {
 		hs.EnableHTTP2 = true
 		hs.StartTLS()
 		serverHash := sha256.Sum256(hs.Certificate().Raw)

@@ -56,7 +56,6 @@ func (c *serverClientFlags) setup(svc appServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("server-password", "Server control password").Hidden().StringVar(&c.serverPassword)
 
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").PlaceHolder("SHA256-FINGERPRINT").Envar(svc.EnvName("KOPIA_SERVER_CERT_FINGERPRINT")).StringVar(&c.serverCertFingerprint)
-	// Distinct from server-side --tls-ca-file, which trusts client certificates for mTLS.
 	cmd.Flag("server-cert-ca-file", "Path to a PEM file with the CA certificate(s) the server certificate must chain to; alternative to --server-cert-fingerprint").Envar(svc.EnvName("KOPIA_SERVER_CERT_CA_FILE")).StringVar(&c.serverCertCAFile)
 }
 

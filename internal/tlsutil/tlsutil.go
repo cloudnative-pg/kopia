@@ -168,10 +168,10 @@ func TransportTrustingCA(caPEM []byte) (http.RoundTripper, error) {
 		return nil, err
 	}
 
-	t2 := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
-	t2.TLSClientConfig = cfg
+	t := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+	t.TLSClientConfig = cfg
 
-	return t2, nil
+	return t, nil
 }
 
 func verifyPeerCertificate(sha256Fingerprint string) func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
