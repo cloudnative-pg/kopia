@@ -33,8 +33,7 @@ func (c *commandRepositoryConnectServer) setup(svc advancedAppServices, parent c
 	cmd := parent.Command("server", "Connect to a repository API Server.")
 	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.connectAPIServerCertFingerprint)
-	// Distinct from server-side --tls-ca-file, which trusts client certificates for mTLS.
-	cmd.Flag("server-cert-ca-file", "Path to a PEM file with the CA certificate(s) the server certificate must chain to; alternative to --server-cert-fingerprint").StringVar(&c.connectAPIServerCertCAFile)
+	cmd.Flag("server-cert-ca-file", "Path to a server CA certificate(s) PEM file; alternative to --server-cert-fingerprint").StringVar(&c.connectAPIServerCertCAFile)
 	cmd.Flag("client-certificate", "Certificate to be sent to the server").StringVar(&c.connectAPIServerClientCertificate)
 	cmd.Flag("client-key", "Private key of the client-certificate. Proves the certificate owner is trustworthy").StringVar(&c.connectAPIServerClientPrivateKey)
 	//nolint:lll

@@ -147,8 +147,7 @@ func TransportTrustingSingleCertificate(sha256Fingerprint string) http.RoundTrip
 
 // TLSConfigTrustingCA returns tls.Config which verifies the server certificate
 // chains to one of the CAs in caPEM, using standard chain and hostname
-// verification. Distinct from --tls-ca-file on the server side, which trusts
-// client certificates for mTLS.
+// verification.
 func TLSConfigTrustingCA(caPEM []byte) (*tls.Config, error) {
 	rootCAs := x509.NewCertPool()
 

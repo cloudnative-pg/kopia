@@ -85,10 +85,12 @@ kopia repository connect server --url https://<address>:51515 \
   --server-cert-fingerprint 48537cce585fed39fb26c639eb8ef38143592ba4b4e7677a84a31916398d40f7
 ```
 
-If the certificate is signed by a CA (for example LetsEncrypt), use
-`--server-cert-ca-file` instead of a fingerprint: the client verifies the
-server certificate against that CA rather than pinning one leaf, so a
-rotated certificate keeps working without reconnecting.
+If the server certificate is signed by a CA, that CA certificate can be
+passed to the client with `--server-cert-ca-file` instead of a fingerprint.
+The client then verifies the server certificate against the CA rather than
+pinning a single certificate, so the server certificate can be rotated
+without reconnecting the clients. The PEM file must contain the CA that
+issued the server certificate.
 
 ```shell
 kopia repository connect server --url https://<address>:51515 \

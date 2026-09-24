@@ -206,28 +206,31 @@ type Options struct {
 	LogRequests bool
 }
 
+func (o *Options) validate() error {
+	if o.TrustedServerCertificateFingerprint != "" && len(o.TrustedServerCACertificate) > 0 {
+		return errors.New("invalid options, server-cert-fingerprint and server-cert-ca-file are mutually exclusive")
+	}
+
+	return nil
+}
+
 // NewKopiaAPIClient creates a client for connecting to Kopia HTTP API.
 func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
-	var transport http.RoundTripper
+	if err := options.validate(); err != nil {
+		return nil, err
+	}
 
-	haveFingerprint := options.TrustedServerCertificateFingerprint != ""
-	haveCA := len(options.TrustedServerCACertificate) > 0
+	transport := http.DefaultTransport
 
-	switch {
-	case haveFingerprint && haveCA:
-		return nil, errors.New("server-cert-fingerprint and server-cert-ca-file are mutually exclusive")
-	case haveFingerprint:
-		// override transport which trusts only one certificate
+	if options.TrustedServerCertificateFingerprint != "" {
 		transport = tlsutil.TransportTrustingSingleCertificate(options.TrustedServerCertificateFingerprint)
-	case haveCA:
+	} else if len(options.TrustedServerCACertificate) > 0 {
 		t, err := tlsutil.TransportTrustingCA(options.TrustedServerCACertificate)
 		if err != nil {
 			return nil, errors.Wrap(err, "invalid server CA certificate")
 		}
 
 		transport = t
-	default:
-		transport = http.DefaultTransport
 	}
 
 	uri := options.BaseURL
