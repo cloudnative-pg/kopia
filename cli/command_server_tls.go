@@ -31,7 +31,8 @@ func (c *commandServerStart) generateServerCertificate(ctx context.Context) (*x5
 		ctx,
 		c.serverStartTLSGenerateRSAKeySize,
 		time.Duration(c.serverStartTLSGenerateCertValidDays)*oneDay,
-		c.serverStartTLSGenerateCertNames)
+		c.serverStartTLSGenerateCertNames,
+	)
 
 	return cert, key, errors.Wrap(err, "error generating server certificate")
 }
@@ -152,10 +153,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 	switch {
 	case c.serverStartTLSCertFile != "" && c.serverStartTLSKeyFile != "":
 		// PEM files provided
-		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck
-		c.showServerUIPrompt(ctx)
-
-		return checkErrServerClosed(ctx, httpServer.ServeTLS(listener, c.serverStartTLSCertFile, c.serverStartTLSKeyFile), "error starting TLS server")
+		return c.serveWithReloadableTLSFiles(ctx, httpServer, listener, udsPfx)
 
 	case c.serverStartTLSGenerateCert:
 		// PEM files not provided, generate in-memory TLS cert/key but don't persist.
@@ -203,6 +201,79 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 
 		return checkErrServerClosed(ctx, httpServer.Serve(listener), "error starting server")
 	}
+}
+
+// serveWithReloadableTLSFiles serves the configured PEM files with a TLS
+// configuration that is rebuilt on every handshake, so rotated
+// certificates and CA bundles take effect without restarting the server.
+// A rebuild failure fails that handshake closed.
+// Note: the ClientCAs pool built into the base config above is superseded
+// here by the per-handshake rebuilds; it remains in place for the other
+// branches of startServerWithOptionalTLSAndListener.
+func (c *commandServerStart) serveWithReloadableTLSFiles(
+	ctx context.Context,
+	httpServer *http.Server,
+	listener net.Listener,
+	udsPfx string,
+) error {
+	fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck
+	c.showServerUIPrompt(ctx)
+
+	// Load once to fail fast on invalid files at startup.
+	if _, err := c.loadServerTLSConfig(); err != nil {
+		return err
+	}
+
+	httpServer.TLSConfig = &tls.Config{
+		GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
+			reloaded, err := c.loadServerTLSConfig()
+			if err != nil {
+				log(ctx).Errorf("unable to reload server TLS configuration, rejecting handshake: %v", err)
+				return nil, err
+			}
+
+			return reloaded, nil
+		},
+	}
+
+	return checkErrServerClosed(ctx, httpServer.ServeTLS(listener, "", ""), "error starting TLS server")
+}
+
+// loadServerTLSConfig rebuilds the full server TLS configuration from the
+// configured files on every call, so rotated certificates and CA bundles
+// are picked up by new handshakes without restarting the server. It mirrors
+// the one-time setup in startServerWithOptionalTLSAndListener, including
+// its MinVersion behavior per branch.
+func (c *commandServerStart) loadServerTLSConfig() (*tls.Config, error) {
+	// GetConfigForClient replaces the config http.Server prepares, including
+	// its ALPN list, so advertise h2 here or gRPC clients refuse to connect.
+	cfg := &tls.Config{NextProtos: []string{"h2", "http/1.1"}}
+
+	if c.serverStartTLSCertFile != "" && c.serverStartTLSKeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(c.serverStartTLSCertFile, c.serverStartTLSKeyFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "loading TLS certificate and key")
+		}
+
+		cfg.Certificates = []tls.Certificate{cert}
+	}
+
+	if c.serverStartCAFile != "" {
+		cfg.MinVersion = tls.VersionTLS13
+		cfg.ClientAuth = tls.VerifyClientCertIfGiven
+		cfg.ClientCAs = x509.NewCertPool()
+
+		caFileContent, err := os.ReadFile(c.serverStartCAFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "reading TLS CA PEM file")
+		}
+
+		if !cfg.ClientCAs.AppendCertsFromPEM(caFileContent) {
+			return nil, errors.New("parsing TLS CA PEM file")
+		}
+	}
+
+	return cfg, nil
 }
 
 func (c *commandServerStart) showServerUIPrompt(ctx context.Context) {
