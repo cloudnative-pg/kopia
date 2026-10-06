@@ -354,6 +354,7 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 				},
 			},
 			&credentials.EnvAWS{},
+			&credentials.FileAWSCredentials{},
 			&credentials.IAM{
 				Client: &http.Client{
 					Transport: http.DefaultTransport,
