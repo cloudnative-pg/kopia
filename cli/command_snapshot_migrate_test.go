@@ -106,6 +106,8 @@ func TestSnapshotMigrateMatchTags(t *testing.T) {
 		"--all",
 		"--match-tags", "env:prod",
 		"--match-tags", "tier:db",
+		"--tags", "tag:env",
+		"--tags", "tag:tier",
 		"--source-config", filepath.Join(sourceEnv.ConfigDir, ".kopia.config"),
 	)
 
@@ -113,6 +115,8 @@ func TestSnapshotMigrateMatchTags(t *testing.T) {
 
 	testutil.MustParseJSONLines(t, destEnv.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &destSnapshots)
 	require.Len(t, destSnapshots, 1)
+	require.Equal(t, "prod", destSnapshots[0].Tags["tag:env"])
+	require.Equal(t, "db", destSnapshots[0].Tags["tag:tier"])
 	// object IDs differ across repositories, compare the directory contents instead
 	require.EqualValues(t, 1, sourceSnapshots[0].RootEntry.DirSummary.TotalFileCount)
 	require.Equal(t, sourceSnapshots[0].RootEntry.DirSummary.TotalFileCount, destSnapshots[0].RootEntry.DirSummary.TotalFileCount)
