@@ -24,6 +24,8 @@ type commandSnapshotMigrate struct {
 	migrateLatestOnly        bool
 	migrateParallel          int
 	migrateTags              []string
+	migrateMatchTags         []string
+	matchTags                map[string]string
 	applyIgnoreRules         bool
 
 	svc advancedAppServices
@@ -41,6 +43,7 @@ func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandPa
 	cmd.Flag("parallel", "Number of sources to migrate in parallel").Default("1").IntVar(&c.migrateParallel)
 	cmd.Flag("apply-ignore-rules", "When migrating also apply current ignore rules").BoolVar(&c.applyIgnoreRules)
 	cmd.Flag("tags", "List of tags to be migrated").StringsVar(&c.migrateTags)
+	cmd.Flag("match-tags", "Only migrate snapshots having all these tags. Must be provided in the <key>:<value> format.").StringsVar(&c.migrateMatchTags)
 	cmd.Action(svc.repositoryWriterAction(c.run))
 
 	c.svc = svc
@@ -48,6 +51,13 @@ func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandPa
 }
 
 func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.RepositoryWriter) error {
+	matchTags, err := getTags(c.migrateMatchTags)
+	if err != nil {
+		return errors.Wrap(err, "invalid --match-tags")
+	}
+
+	c.matchTags = matchTags
+
 	sourceRepo, err := c.openSourceRepo(ctx)
 	if err != nil {
 		return errors.Wrap(err, "can't open source repository")
@@ -227,7 +237,7 @@ func (c *commandSnapshotMigrate) findPreviousSnapshotManifestWithStartTime(ctx c
 }
 
 func (c *commandSnapshotMigrate) migrateSingleSource(ctx context.Context, uploader *upload.Uploader, sourceRepo repo.Repository, destRepo repo.RepositoryWriter, s snapshot.SourceInfo) error {
-	manifests, err := snapshot.ListSnapshotManifests(ctx, sourceRepo, &s, nil)
+	manifests, err := snapshot.ListSnapshotManifests(ctx, sourceRepo, &s, c.matchTags)
 	if err != nil {
 		return errors.Wrapf(err, "error listing snapshot manifests for %v", s)
 	}
