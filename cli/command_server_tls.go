@@ -31,8 +31,7 @@ func (c *commandServerStart) generateServerCertificate(ctx context.Context) (*x5
 		ctx,
 		c.serverStartTLSGenerateRSAKeySize,
 		time.Duration(c.serverStartTLSGenerateCertValidDays)*oneDay,
-		c.serverStartTLSGenerateCertNames,
-	)
+		c.serverStartTLSGenerateCertNames)
 
 	return cert, key, errors.Wrap(err, "error generating server certificate")
 }
